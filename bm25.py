@@ -27,7 +27,7 @@ class FastBM25Okapi:
         data = [] 
         for term_id, (term, hits) in enumerate(postings.items()):
             self.vocab[term] = term_id
-            idf = np.log((self.n_docs - len(hits) + 0.5) / (len(hits) + 0.5))
+            idf = np.log(1 + (self.n_docs - len(hits) + 0.5) / (len(hits) + 0.5))
 
             for doc_id, tf in hits:
                 norm = 1 - self.b + self.b * self.doc_len[doc_id] / self.avgdl if self.avgdl else 1
@@ -41,6 +41,7 @@ class FastBM25Okapi:
             dtype=float,
         ).tocsr()
 
+    # Trả về điểm số BM25 cho một truy vấn đã được token hóa so với tất cả tài liệu
     def get_scores(self, terms):
         query = Counter(self.vocab[t] for t in terms if t in self.vocab)
         if not query:
@@ -98,13 +99,23 @@ def choose_answer(question, choices, context):
     sentences = [s.strip() for s in re.split(r"[.;!?\n]+", context) if s.strip()]
     tokenized = [tokens for tokens in map(tokenize, sentences) if tokens]
     if not tokenized:
-        return "A"
+        return "B"
 
     local_bm25 = BM25Okapi(tokenized)
-    return max(
-        CHOICES,
-        key=lambda key: local_bm25.get_scores(tokenize(f"{question} {choices[key]}")).sum(),
-    )
+    best_score = -1
+    best_choice = "B"
+    for key in CHOICES:
+        query = f"{question} {choices[key]}"
+        query_tokens = tokenize(query)
+
+        scores = local_bm25.get_scores(query_tokens)
+        total_score = scores.sum()
+
+        if total_score > best_score:
+            best_score = total_score
+            best_choice = key
+
+    return best_choice
 
 
 def make_submission(test_file, corpus_file, output_file):
