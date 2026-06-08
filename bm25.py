@@ -167,7 +167,7 @@ def score_option(option, hits, index):
     return total
 
 
-def answer_question(question, index, cache, top_k=20):
+def answer_question(question, index, cache, top_k=10):
     q_text = question.get("question", "")
     expanded = " ".join([q_text] + [question.get(choice, "") for choice in CHOICES])
 
