@@ -1,5 +1,4 @@
-import json
-import re
+import json, re
 from collections import Counter, defaultdict
 import numpy as np
 from rank_bm25 import BM25Okapi
@@ -7,10 +6,6 @@ from scipy.sparse import coo_matrix, csr_matrix
 
 TOP_K = 5
 CHOICES = ("A", "B", "C", "D")
-
-
-def tokenize(text):
-    return re.findall(r"\w+", str(text).lower())
 
 
 class FastBM25Okapi:
@@ -27,10 +22,12 @@ class FastBM25Okapi:
             for term, tf in Counter(doc).items():
                 postings[term].append((doc_id, tf))
 
-        rows, cols, data = [], [], []
+        rows = []
+        cols = []
+        data = [] 
         for term_id, (term, hits) in enumerate(postings.items()):
             self.vocab[term] = term_id
-            idf = np.log(1 + (self.n_docs - len(hits) + 0.5) / (len(hits) + 0.5))
+            idf = np.log((self.n_docs - len(hits) + 0.5) / (len(hits) + 0.5))
 
             for doc_id, tf in hits:
                 norm = 1 - self.b + self.b * self.doc_len[doc_id] / self.avgdl if self.avgdl else 1
@@ -58,23 +55,36 @@ class FastBM25Okapi:
         return (vector @ self.matrix.T).toarray().ravel()
 
 
-def load_corpus(path):
-    docs = []
-    with open(path, encoding="utf-8") as f:
-        for line in f:
-            row = json.loads(line)
-            title = " ".join(str(row.get("title", "")).split()[2:])
-            parts = [row.get("chude_name", ""), row.get("demuc_name", ""), title, row.get("content", "")]
-            text = " ".join(str(part).strip() for part in parts if part)
-            if text:
-                docs.append(text)
-
-    print(f"Loaded {len(docs):,} documents")
-    return docs
+def tokenize(text):
+    return re.findall(r"\w+", str(text).lower())
 
 
-def top_docs(query, bm25, docs, k=TOP_K):
-    scores = bm25.get_scores(tokenize(query))
+def load_corpus(corpus_file="dataset.json"):
+    """Doc du lieu kien thuc (knowledge base) tu file JSON."""
+    documents = []
+    try:
+        with open(corpus_file, 'r', encoding='utf-8') as f:
+            for line in f:
+                try:
+                    doc = json.loads(line)
+                except json.JSONDecodeError:
+                    continue
+                # Ghep title va content lam noi dung de tim kiem
+                title = " ".join(str(doc.get("title", "")).split()[2:])
+                text = " ".join(str(x).strip() for x in [
+                    doc.get("chude_name", ""),
+                    doc.get("demuc_name", ""),
+                    title,
+                    doc.get("content", "")
+                ] if x)
+                if text:
+                    documents.append(text)
+    except FileNotFoundError:
+        print(f"Loi: Khong tim thay file {corpus_file}. Vui long kiem tra lai!")
+    return documents
+
+def top_docs(query, fast_bm25, docs, k=TOP_K):
+    scores = fast_bm25.get_scores(tokenize(query))
     k = min(k, len(scores))
     if k == 0:
         return []
