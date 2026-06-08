@@ -1,4 +1,5 @@
-import json, re
+import json
+import re
 from collections import Counter, defaultdict
 import numpy as np
 from rank_bm25 import BM25Okapi
@@ -80,6 +81,7 @@ def load_corpus(corpus_file="dataset.json"):
                 ] if x)
                 if text:
                     documents.append(text)
+            print(f"Loaded {len(documents)} documents from corpus.")
     except FileNotFoundError:
         print(f"Loi: Khong tim thay file {corpus_file}. Vui long kiem tra lai!")
     return documents
@@ -102,6 +104,7 @@ def choose_answer(question, choices, context):
         return "B"
 
     local_bm25 = BM25Okapi(tokenized)
+    choice_scores = {}
     best_score = -1
     best_choice = "B"
     for key in CHOICES:
@@ -111,15 +114,21 @@ def choose_answer(question, choices, context):
         scores = local_bm25.get_scores(query_tokens)
         total_score = scores.sum()
 
+        choice_scores[key] = total_score
+
         if total_score > best_score:
             best_score = total_score
             best_choice = key
+
+    if choice_scores.get("B", 0) >= best_score * 0.95:
+        return "B"
 
     return best_choice
 
 
 def make_submission(test_file, corpus_file, output_file):
     docs = load_corpus(corpus_file)
+
     bm25 = FastBM25Okapi([tokenize(doc) for doc in docs])
 
     with open(test_file, encoding="utf-8") as f:
@@ -127,6 +136,7 @@ def make_submission(test_file, corpus_file, output_file):
 
     rows = []
     total = len(questions)
+    print(f"Processing {total} questions...")
     for idx, item in enumerate(questions, 1):
         question = item.get("question", "")
         choices = {key: item.get(key, "") for key in CHOICES}
