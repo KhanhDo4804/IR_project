@@ -11,7 +11,6 @@ from sklearn.feature_extraction.text import TfidfVectorizer
 CHOICES = ("A", "B", "C", "D")
 CHUNK_WORDS = int(os.getenv("CHUNK_WORDS", "450"))
 CHUNK_OVERLAP = int(os.getenv("CHUNK_OVERLAP", "80"))
-B_RELATIVE_SCORE_THRESHOLD = float(os.getenv("B_RELATIVE_SCORE_THRESHOLD", "0.90"))
 SECOND_BEST_RELATIVE_SCORE_THRESHOLD = float(os.getenv("SECOND_BEST_RELATIVE_SCORE_THRESHOLD", "0"))
 NEGATIVE_PATTERNS = (
     r"\bkhông\s+thuộc\b",
@@ -172,7 +171,7 @@ def choose_answer(item: dict, docs, doc_matrix, vectorizer, top_k: int) -> str:
 
     b_score = scores.get("B", 0.0)
 
-    if b_score >= best_score * B_RELATIVE_SCORE_THRESHOLD:
+    if b_score >= best_score * 0.9:
         return "B"
 
     return best_answer
